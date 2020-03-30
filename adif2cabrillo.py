@@ -1,7 +1,8 @@
 import sys
 import os
 import argparse
-import adif_io
+import logging
+import re
 
 #                               --------info sent------- -------info rcvd--------
 # QSO: freq  mo date       time call          rst exch   call          rst exch   t
@@ -40,23 +41,40 @@ def cabrillo_qso_line(qso):
             f'{qso["exch_rcvd"]:6} ' )
     return cabrillo_qso_line
 
+def get_adif_data(record, specifier):
+    pattern = re.compile(r'<call:.*?>(\w+)<')
+    match = pattern.match(line)
+    if (match):
+        return(match.group(1))
+    else:
+        return None
 
 parser = argparse.ArgumentParser()
 parser.add_argument("adif_file")
 args = parser.parse_args()
 
 if (not os.path.exists(args.adif_file)):
-    print(f'ADIF file {args.adif_file} does not exist.')
+    logging.error(f'ADIF file {args.adif_file} does not exist.')
     exit(-1)
 
-adif_qsos, adif_header = adif_io.read_from_file(args.adif_file)
+with open(args.adif_file, 'r') as f:
+    eoh_matched = False # we haven't seen <EOH> yet
+    for line in f:
+        # skip header
+        if (not eoh_matched):
+            eoh_matched = re.match('<EOH>',line)
+            continue # fast-forward until <EOH>
+        # now parse lines for qso records
+        qso = {}
+        call = get_adif_data(line, 'XXX')
+        if (not call):
+            continue # skip line if it does not contain a call 
+        print(call)        
 
-for adif_qso in adif_qsos:
-    print(adif_qso)
-    qso = []
-    # qso['freq'] = adif_qso['FREQ']
-    freq = adif_qso['FREQ']
-    print(qso)
+    # now parse QSO lines
+    
+
+#for adif_line in 
 
 # qso_line=qso_line(fake_qso())
 # print(qso_line)
