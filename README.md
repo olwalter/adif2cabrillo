@@ -1,5 +1,7 @@
-adi2cabrillo
-============
+CQ WPX contest expects "Cabrillo" logs, so...
+
+adif2cabrillo
+=============
 
 This amateur radio utility converts ADIF log files (as exported by Cloudlog)
 to Cabrillo log files (as expected by the CQ WPX contest).

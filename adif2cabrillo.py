@@ -42,8 +42,7 @@ def cabrillo_qso_line(qso):
     return cabrillo_qso_line
 
 def get_adif_data(record, specifier):
-    pattern = re.compile(r'<call:.*?>(\w+)<')
-    match = pattern.match(line)
+    match = re.search(r'<' + specifier + r':.*?>(.+?)<', record)
     if (match):
         return(match.group(1))
     else:
@@ -57,21 +56,80 @@ if (not os.path.exists(args.adif_file)):
     logging.error(f'ADIF file {args.adif_file} does not exist.')
     exit(-1)
 
+
 with open(args.adif_file, 'r') as f:
     eoh_matched = False # we haven't seen <EOH> yet
+    linenumber = 0
     for line in f:
+        linenumber = linenumber + 1
+        
         # skip header
         if (not eoh_matched):
             eoh_matched = re.match('<EOH>',line)
             continue # fast-forward until <EOH>
+        
         # now parse lines for qso records
         qso = {}
-        call = get_adif_data(line, 'XXX')
+        
+        # call
+        call = get_adif_data(line, r'call')
         if (not call):
-            continue # skip line if it does not contain a call 
-        print(call)        
+            logging.warning(f'call missing for record in line {linenumber}, skipping')
+            continue # skip line if no call 
+        qso['call'] = call
+        
+        # band (only needed if freq is missing)
+        band = get_adif_data(line, r'band')
+        if band:
+            qso['band'] = band
+        
+        # freq
+        freq =  get_adif_data(line, r'freq')
+        if (freq):
+            qso['freq'] = int(float(freq) * 1000.) # MHz to kHz
+        else:  # sometimes freq seems to be missing
+            qso['freq'] = band
+            logging.warning(f'freq missing for record in line {linenumber}, using band instead')
+       
+        # mode
+        mode = get_adif_data(line, r'mode')
+        if (mode):
+            if (mode == 'SSB'):
+                qso['mode'] = 'PH'
+            else:
+                qso['mode'] = mode
+        else:
+            logging.warning(f'mode missing for record in line {linenumber}')
+        
+        # date
+        date = get_adif_data(line, r'qso_date')
+        if (date):
+            qso['date'] = date[0:4] + '-' + date[4:6] + '-' + date[6:8]
+        else:
+            logging.warning(f'date missing for record in line {linenumber}')
 
-    # now parse QSO lines
+        # time
+        time = get_adif_data(line, r'time_on')
+        if (time):
+            qso['time'] = time[0:4]
+        else:
+            logging.warning(f'time missing for record in line {linenumber}')
+
+        # rst and exchange sent
+        rst_exch_sent = get_adif_data(line, r'rst_sent')
+        if (rst_exch_sent):
+            (qso['rst_sent'], qso['exch_sent']) = re.split(r'[ ]\s*', rst_exch_sent)
+        else:
+            logging.warning(f'rst, exch sent missing for record in line {linenumber}')
+
+        # rst and exchange rcvd
+        rst_exch_rcvd = get_adif_data(line, r'rst_rcvd')
+        if (rst_exch_rcvd):
+            (qso['rst_rcvd'], qso['exch_rcvd']) = re.split(r'[ ]\s*', rst_exch_rcvd)
+        else:
+            logging.warning(f'rst, exch sent missing for record in line {linenumber}')
+
+        print(qso)        
     
 
 #for adif_line in 
